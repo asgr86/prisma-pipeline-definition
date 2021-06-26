@@ -1,0 +1,28 @@
+#Prisma scanners 
+steps:
+# creates a directory with name tfplan
+#copies prisma config files to the tfplan directory
+#generates Json file using TF show command and copies the file to tfplan directory
+- task: Bash@3
+  displayName: 'Generating json for Prisma'
+  inputs:
+    workingDirectory: $(System.DefaultWorkingDirectory)/$(tf_directory)
+    targettype: 'inline'
+    script: |
+      mkdir tfplan
+      cp -R $(System.DefaultWorkingDirectory)/pipelines/prisma/.prismaCloud/ tfplan/
+      terraform show -json plan.out > tfplan/tfplan.json
+
+#scans the json plan file for policy violations
+#Refer for Failure Criteria : https://docs.paloaltonetworks.com/prisma/prisma-cloud/prisma-cloud-admin/prisma-cloud-devops-security/use-the-prisma-cloud-extension-for-aws-devops.html
+- task: Palo-Alto-Networks.build-release-task.iacScan-build-release-task.Prisma Cloud IaC Scan@3
+  displayName: 'Prisma IaC Scan for Terraform'
+  #Job fails when there is a high priority violation
+  inputs:
+    Path: $(tf_directory)/tfplan
+    prismaCloudService: 'Prisma-IAC-Scanner'
+    Tags: 'repo: AzureDevops'
+    High: '0'
+    Medium: '1000'
+    Low: '1000'
+    Operator: 'or'
